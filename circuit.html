@@ -5,9 +5,11 @@
     <div>
         Circuit Simulator
     </div>
-    <canvas id="testCanvas" style="width:90%; height:90%;"></canvas>
+    <input id="simulationSpeedInput" type="range" min=0 value = 30 max=300 step=1 oninput=SimulationSpeedInputChange(event)>
+    <canvas id="circuitCanvas" style="width:90%; height:90%;"></canvas>
 </body>
 
 <script src="circuit.js"></script>
+<script src="circuitUI.js"></script>
 
 </html>

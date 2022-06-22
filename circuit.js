@@ -1,70 +1,6 @@
 
 
 
-class Point {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-    }
-    add(x,y)
-    {
-        if (x instanceof Point) {
-            y = x.y;
-            x = x.x;
-        }
-        return new Point(this.x + x, this.y + y);
-    }
-    addi(x,y)
-    {
-        if (x instanceof Point) {
-            y = x.y;
-            x = x.x;
-        }
-        this.x += x;
-        this.y += y;
-        return this;
-    }
-    sub(x,y)
-    {
-        if (x instanceof Point) {
-            y = x.y;
-            x = x.x;
-        }
-        return new Point(this.x - x, this.y - y);
-    }
-    subi(x,y)
-    {
-        if (x instanceof Point) {
-            y = x.y;
-            x = x.x;
-        }
-        this.x -= x;
-        this.y -= y;
-        return this;
-    }
-
-
-    equalTo(x,y) {
-        if (x instanceof Point)
-        {
-            y = x.y;
-            x = x.x;
-        }
-        if (x == this.x && y == this.y)
-        {
-            return true;
-        }
-        return false;
-    }
-    distTo(x,y) {
-        if (x instanceof Point)
-        {
-            y = x.y;
-            x = x.x;
-        }
-        return Math.sqrt( Math.pow(this.x-x, 2) + Math.pow(this.y-y, 2) );
-    }
-}
 function closeTo(num1, num2, threshold = 0.001)
 {
     if (num1-threshold < num2 && num1+threshold > num2)
@@ -86,8 +22,6 @@ function copy(array)
     }
     return newArray;
 }
-
-
 
 
 
@@ -118,10 +52,6 @@ class Node {
         return s;
     }
 }
-
-
-
-
 class Component {
     constructor(name, startNode, endNode)
     {
@@ -135,6 +65,9 @@ class Component {
         this.inductance = NaN;
         this.capacitance = NaN;
         this.resistance = NaN;
+
+        this.voltageHistory = [];
+        this.currentHistory = [];
         //this.voltage = voltage;
         //this.current = current;
         //this.resistance = resistance;
@@ -143,6 +76,14 @@ class Component {
     }
     setValue(value) {
         console.error("this compoinent.setValue not implemented");
+    }
+    getVoltage()
+    {
+        return this.voltage;
+    }
+    getCurrent()
+    {
+        return this.current;
     }
 }
 class Resistor extends Component {
@@ -174,6 +115,7 @@ class Inductor extends CurrentSource {
     {
         super(name, startNode,endNode);
         this.inductance = inductance;
+        this.current = 0;
     }
     setValue(value)
     {
@@ -205,6 +147,36 @@ class Capacitor extends Voltage2n {
     {
         super(name, startNode, endNode);
         this.capacitance = capacitance;
+        this.voltage = 0;
+    }
+    setValue(value)
+    {
+        if (isNaN(value)) { return; }
+        this.capacitance = value;
+    }
+}
+
+class Diode extends Resistor {
+    constructor(name, startNode, endNode, thresholdVoltage=10)
+    {
+        super(name, startNode, endNode);
+        this.thresholdVoltage = thresholdVoltage;
+        this.resistance = 1000000000;
+        this.avgCurrent = 0;
+        this.avgVoltage = 0;
+    }
+    setValue(value)
+    {
+        if (isNaN(value)) { return; }
+        this.thresholdVoltage = thresholdVoltage;
+    }
+    getVoltage()
+    {
+        return this.avgVoltage;
+    }
+    getCurrent()
+    {
+        return this.avgCurrent;
     }
 }
 
@@ -448,8 +420,6 @@ const circ13 = {
 }
 
 
-
-
 function updateMatrix(matA, matX, matB)
 {
     for (let i=0; i<matX.length; i++)
@@ -548,17 +518,19 @@ function Gaussian(matA, matX, matB, rowLength=3)
     //printMatrix(matX, 1);
     //printMatrix(matB, 1);
 }
+
+
 /*
 
 circuit format:
 
-type, name, node1Name, node2Name, value1, value2, type, name, value, ..., type
+type, name, node1Name, node2Name, value, type, name, value, ..., type
 
 type acceptible values: r, resistor, 
                         c, capacitor, 
                         i, inductor, 
-                        v1n, voltage1n,
-                        v2n, voltage2n,
+                        v1n, voltage1n, v,
+                        v2n, voltage2n, V,
                         cs, currentSource,
 
 */
@@ -566,15 +538,19 @@ type acceptible values: r, resistor,
 
 class Circuit
 {
-    constructor(circuitString = "", nodes = [], components = [])
+    constructor(circuitString = "")
     {
         this.nodes;         //array of node objects
         this.nodeMap;       //Map to get node by Node Name  (note: not Number)
         this.components;    // = components;//circ1.components;
         this.componentMap;  
 
+        this.timeStep = 0.000000001; // 1ns simulation time step
+        this.timeSinceStart = 0; //in seconds
+
         // following are set in this._CreateComponentGroupings
         this.resistiveComponents = []; // all resistors
+        this.currentComponents = []; //current sources and inductors
         this.voltage1nComponents = []; // all voltage1n components
         this.voltage2nComponents = []; //all voltage2n components
         this.varyingComponents = []; //all Capacitors, Inductors, and other varying components (change value every tick)
@@ -633,14 +609,28 @@ class Circuit
             //console.log("Creating component: type:" + type + " name:" + name + " n1:" + node1Name + " n2:" + node2Name + " value1:" +value1);
             switch (type)
             {
-                case 'r' || 'resistor': comp = new Resistor(name, node1, node2, Number(value1)); break;
-                case 'c' || 'capacitor': comp = new Capacitor(name, node1, node2, Number(value1)); break;
-                case 'i' || 'inductor': comp = new Inductor(name, node1, node2, Number(value1)); break;
-                case 'v1n' || 'voltage1n': comp = new Voltage1n(name, node1, node2, Number(value1)); break;
-                case 'v2n' || 'voltage2n': comp = new Voltage2n(name, node1, node2, Number(value1)); break;
-                case 'cs' || 'currentSource': comp = new CurrentSource(name, node1, node2, Number(value1)); break;
-                default: console.error("UNKNOWN COMP: " + name); break;
+                case 'r':
+                case 'resistor': comp = new Resistor(name, node1, node2, Number(value1)); break;
+                case 'c':
+                case 'capacitor': comp = new Capacitor(name, node1, node2, Number(value1)); break;
+                case 'l':
+                case 'inductor': comp = new Inductor(name, node1, node2, Number(value1)); break;
+                case 'v1n':
+                case 'voltage1n':
+                case 'V':
+                case 'g': comp = new Voltage1n(name, node1, node2, Number(value1)); break;
+                case 'v2n':
+                case 'voltage2n':
+                case 'v': comp = new Voltage2n(name, node1, node2, Number(value1)); break;
+                case 'i':
+                case 'cs':
+                case 'currentSource': comp = new CurrentSource(name, node1, node2, Number(value1)); break;
+                case 'd': 
+                case 'diode': comp = new Diode(name, node1, node2, Number(value1)); break;
+                default: console.error("UNKNOWN COMP: type:" + type + "  name: " + name); break;
             }
+
+            console.log(comp, value1);
 
             if (comp != null) {
                 this.components.push(comp);
@@ -654,11 +644,8 @@ class Circuit
             }
         }
 
-        //console.log(this.nodes.length);
 
-        for (let i=0; i<this.nodes.length; i++) {
-            console.log(this.nodes[i].toString())
-        }
+        this._CreateComponentGroupings();
     }
     _MapComponentsAndNodes()
     {
@@ -715,6 +702,7 @@ class Circuit
     _CreateComponentGroupings()
     {
         this.resistiveComponents = [];
+        this.currentComponents = [];
         this.voltage1nComponents = [];
         this.voltage2nComponents = [];
         this.varyingComponents = [];
@@ -741,17 +729,41 @@ class Circuit
             {
                 this.varyingComponents.push(c);
             }
+
+            if (c instanceof CurrentSource)
+            {
+                this.currentComponents.push(c);
+            }
+            
+            if (c instanceof Inductor)
+            {
+                this.varyingComponents.push(c);
+            }
+
+            if (c instanceof Diode)
+            {
+                this.varyingComponents.push(c);
+            }
         }
     }
-    Calculate(debugMode = false)
+    Calculate(numCycles = 1, debugMode = false)
     {
         if (debugMode)
         {
             return this._CalculateNodeVoltages();
         }
-        this._CalculateNodeVoltages();
-        this._CalculateCurrents();
-        this._CalculateVoltages();
+
+        for (let i=0; i<numCycles; i++)
+        {
+            this.timeSinceStart += this.timeStep;
+            this._CalculateNodeVoltages();
+            this._CalculateCurrents();
+            this._CalculateVoltages();
+            this._UpdateDynamicComponents();
+            this._SaveHistory();
+        }
+
+        
     }
     _CalculateNodeVoltages() 
     {
@@ -791,7 +803,7 @@ class Circuit
             matX.push(NaN);
         }
 
-        //Load matrices with resistive loads
+        //Load matrices (matA) with resistive loads
         for (let i=0; i<this.resistiveComponents.length; i++)
         {
             const c = this.resistiveComponents[i];
@@ -803,6 +815,17 @@ class Circuit
             matA[en*rowLength + en] += 1/c.resistance;
             matA[en*rowLength + sn] -= 1/c.resistance;
         }
+
+        //load matrices (matB) with inductive/current components
+        for (let i=0; i<this.currentComponents.length; i++)
+        {
+            const c = this.currentComponents[i];
+            const sn = c.startNode.number;
+            const en = c.endNode.number;    
+            matB[sn] += c.current;
+            matB[en] -= c.current;
+        }
+
 
 
         //APPLYING VOLTAGES///////////////////////////////
@@ -899,7 +922,7 @@ class Circuit
                     c.current = (c.startNode.voltage - c.endNode.voltage)/c.resistance;
                     c.startNode.currentIn -= c.current;
                     c.endNode.currentIn += c.current;
-                    console.log(c.current);
+                    //console.log(c.current);
                 }
             }
         }
@@ -954,7 +977,7 @@ class Circuit
                 }
                 if (numUnknownComponents == 1) //if there's only 1 unknown current...
                 {
-                    console.log("n: " + n.name + "  c: " + unknownComponent.name);
+                    //console.log("n: " + n.name + "  c: " + unknownComponent.name);
                     if (unknownComponentStartsAtCurrentNode)
                     {
                         unknownComponent.current = n.currentIn;
@@ -975,18 +998,14 @@ class Circuit
         }
 
 
+        /*
         let s = "";
         for (let i=0; i<this.components.length; i++)
         {
             const c = this.components[i];
             s += "name: "+c.name + "   current: "+c.current+"\n";
         }
-        console.log(s);
-
-        
-
-
-
+        console.log(s);*/
 
     }
     _CalculateVoltages() {
@@ -1002,13 +1021,77 @@ class Circuit
             c.voltage = c.startNode.voltage - c.endNode.voltage;
         }
     }
+    _UpdateDynamicComponents() {
+
+        for (let i=0; i<this.varyingComponents.length; i++)
+        {
+            const c = this.varyingComponents[i];
+            if (c instanceof Capacitor)
+            {
+                c.voltage -= this.timeStep * c.current/c.capacitance;
+            }
+
+            if (c instanceof Inductor)
+            {
+                c.current -= this.timeStep * c.voltage/c.inductance;
+                //console.log(c.current);
+            }
+
+            if (c instanceof Diode)
+            {
+                /*
+                if (c.current < 0)
+                {
+                    //decrease voltage
+                    c.voltage -= 0.1;
+
+                } else {
+                    c.voltage += 0.1;
+                    c.voltage = Math.min(c.thresholdVoltage, c.voltage);
+                }*/
+                //curve: 
+                const I_0 = 0.0000000000001;
+                const v_t = 0.026;
+                // current = I_0 * e ^ (voltage / v_t);
+                const wantedCurrent = I_0 * Math.pow(2.7182818, c.voltage/v_t);
+                //  c.current = c.voltage / c.resistance;
+                //  c.wantedCurrent = c.voltage / c.newResistance;
+                // c.resistance = Math.max(0.01, c.voltage/wantedCurrent);
+                if (c.current > wantedCurrent)
+                {
+                    c.resistance *= 1.01;
+                } else { 
+                    c.resistance *= 0.987;
+                }
+                c.avgVoltage = c.avgVoltage * 0.9 + c.voltage*0.1;
+                c.avgCurrent = c.avgCurrent * 0.9 + c.current*0.1;
+            }
+
+            
+        }
+    }
+    _SaveHistory() {
+        //we only want to save data every 1uS
+        let val = this.timeSinceStart*1000000
+        if (closeTo(val, Math.round(val),this.timeStep*100000) == false)
+        {
+            return;
+        }
+
+        for (let i=0; i<this.components.length; i++)
+        {
+            const c = this.components[i];
+            c.voltageHistory.push(c.getVoltage());
+            c.currentHistory.push(c.getCurrent());
+        }
+    }
 
     getComponentVoltage(componentName)
     {
         const comp = this.componentMap.get(componentName);
         if (comp != null)
         {
-            return comp.voltage;
+            return comp.getVoltage();
         }
     }
     getComponentCurrent(componentName)
@@ -1016,7 +1099,7 @@ class Circuit
         const comp = this.componentMap.get(componentName);
         if (comp != null)
         {
-            return comp.current;
+            return comp.getCurrent();
         }
     }
     getComponentValue(componentName, valueType="")
@@ -1028,8 +1111,8 @@ class Circuit
         }
         switch (valueType.toLowerCase())
         {
-            case "voltage": return comp.voltage;
-            case "current": return comp.current;
+            case "voltage": return comp.getVoltage();
+            case "current": return comp.getCurrent();
             case "resistance": return comp.resistance;
             case "inductance": return comp.inductance;
             case "capacitance": return comp.capacitance;
@@ -1040,18 +1123,18 @@ class Circuit
         const comp = this.componentMap.get(componentName);
         if (comp == null)
         {
-            return null;
+            return;
         }
         return {
-            voltage: comp.voltage, 
-            current: comp.current,
+            voltage: comp.getVoltage(), 
+            current: comp.getCurrent(),
+            voltageHistory: comp.voltageHistory,
+            currentHistory: comp.currentHistory,
             resistance: comp.resistance,
             inductance: comp.inductance, 
             capacitance: comp.capacitance,
         };
     }
-
-
     setComponentValue(componentName, value) {
         for (let i=0; i<this.components.length; i++) 
         {
@@ -1066,7 +1149,7 @@ class Circuit
 }
 
 
-
+/*
 {
     //testing circuit obj
     
@@ -1133,7 +1216,7 @@ class Circuit
 
 
 
-
+*/
 
 
 //OLD UNUSED FUNCTIONS////////////////////////////////////////////////////////////////////
