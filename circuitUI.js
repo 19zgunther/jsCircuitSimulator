@@ -91,7 +91,25 @@ class Point {
     }
 }
 
+function toRGB(r=0,g=0,b=0) 
+{
+    if (r > 254) { r = 254;}
+    else if (r < 1) { r = 1;}
+    if (g > 254) { g = 254;}
+    else if (g < 1) { g = 1;}
+    if (b > 254) { b = 254;}
+    else if (b < 1) { b = 1;}
 
+    r = r.toString(16);
+    g = g.toString(16);
+    b = b.toString(16);
+
+    if (r.length < 2) { r = "0"+r;}
+    if (g.length < 2) { g = "0"+g;}
+    if (b.length < 2) { b = "0"+b;}
+
+    return "#"+r.toString(16).toUpperCase() + g.toString(16).toUpperCase() + b.toString(16).toUpperCase();
+}
 
 function renderWire(ctx, componentWidth, startPoint, endPoint, value)
 {
@@ -403,9 +421,65 @@ function renderDiode(ctx, componentWidth, startPoint, endPoint, value)
 
 }
 
+function renderOpAmp(ctx, componentWidth, startPoint, endPoint, value)
+{
+
+    const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
+    const length = Math.sqrt( Math.pow(endPoint.x-startPoint.x, 2) + Math.pow(endPoint.y-startPoint.y,2) );
+
+    let rotAngle = angle;                
+     
+    /*
+    if (rotAngle < 0)
+    {
+        rotAngle += Math.PI*2;
+    }
+    if (rotAngle < Math.PI/2 || rotAngle >= 3*Math.PI/2)
+    {
+        rotAngle = angle;
+    } else {
+        rotAngle = angle+Math.PI;
+    }*/
+    
+    
+    ctx.beginPath();
+
+    ctx.textAlign = "center";
+    ctx.save();
+    ctx.translate((startPoint.x+endPoint.x)/2, (startPoint.y+endPoint.y)/2);
+    ctx.rotate(rotAngle);
+
+    const width = componentWidth/3;
+    ctx.moveTo(-length/2, 0);
+    ctx.lineTo(-width, 0); //straight part
+
+
+    ctx.moveTo(-width, componentWidth/2); 
+    ctx.lineTo(-width, -componentWidth/2); //triangle
+    ctx.lineTo(width, 0); 
+    ctx.lineTo(-width, componentWidth/2); 
+
+    ctx.moveTo(width, componentWidth/2); 
+    ctx.lineTo(width, -componentWidth/2); //second side
+
+    ctx.moveTo(width, 0);
+    ctx.lineTo(length/2, 0); //straight part
+
+    ctx.stroke();
+
+    //ctx.fillText(value, 0,-componentWidth*1.1  );
+    ctx.restore();
+
+    let w = componentWidth/4;
+    ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
+    ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
+
+    ctx.closePath();
+
+}
+
 
 //For each save we do: type, sp.x, sp.y, ep.x, ep.y, valueString,
-
 class UIComponent
 {
     constructor(type="wire", startPoint=new Point(), endPoint=new Point(100,100), value)
@@ -425,8 +499,8 @@ class UIComponent
 
         this.voltageData = []; //used for plotting...
         this.currentData = [];
-        this.voltageMultiplier = 100;
-        this.currentMultiplier = 100;
+        this.voltageMultiplier = 10;
+        this.currentMultiplier = 10;
         this.plotTimeDivisor = 5; //for speeding up...
 
 
@@ -599,14 +673,24 @@ class CircuitUI
 
         for (let i=0; i<this.components.length; i++)
         {
-            ctx.strokeStyle = color;
+            const c = this.components[i];
+            const data = this.circuit.getComponentData(c.name);
+            let v = 0;
+            if (data != null) {
+                c.voltageData = data.voltageHistory;
+                c.currentData = data.currentHistory;
+                v = c.voltageData[c.voltageData.length-1];
+            }
+
+            ctx.strokeStyle = toRGB(Math.max( 0, -v)*20, Math.max( 0, v)*20, 0 );
             ctx.fillStyle = color;
-            if (this.components[i] == this.selectedComponent)
+            if (c == this.selectedComponent)
             {
-                ctx.strokeStyle = highlightColor;
+                ctx.strokeStyle = toRGB(-v*25, v*25, 254 );
+                //ctx.strokeStyle = highlightColor;
                 if (this.userState == "editingComponentValue")
                 {
-                    if (this.components[i].valueIsValid == true)
+                    if (c.valueIsValid == true)
                     {
                         ctx.fillStyle = "green";
                     } else {
@@ -614,7 +698,7 @@ class CircuitUI
                     }
                 }
             }
-            this.components[i].render(ctx, this.componentWidth);
+            c.render(ctx, this.componentWidth);
         }
         this._renderPlots();
     }
@@ -633,13 +717,13 @@ class CircuitUI
         for (let i=0; i<this.plottedComponents.length; i++)
         {
             const c = this.plottedComponents[i];
-            if (this.run == true) //if running the simulation, get
+            /*if (this.run == true) //if running the simulation, get
             {
                 const data = this.circuit.getComponentData(c.name);
                 if (data == null) { continue;}
                 c.voltageData = data.voltageHistory;
                 c.currentData = data.currentHistory;
-            }
+            }*/
 
 
             //Draw plot background and such
