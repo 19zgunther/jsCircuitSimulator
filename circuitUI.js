@@ -91,25 +91,7 @@ class Point {
     }
 }
 
-function toRGB(r=0,g=0,b=0) 
-{
-    if (r > 254) { r = 254;}
-    else if (r < 1) { r = 1;}
-    if (g > 254) { g = 254;}
-    else if (g < 1) { g = 1;}
-    if (b > 254) { b = 254;}
-    else if (b < 1) { b = 1;}
 
-    r = r.toString(16);
-    g = g.toString(16);
-    b = b.toString(16);
-
-    if (r.length < 2) { r = "0"+r;}
-    if (g.length < 2) { g = "0"+g;}
-    if (b.length < 2) { b = "0"+b;}
-
-    return "#"+r.toString(16).toUpperCase() + g.toString(16).toUpperCase() + b.toString(16).toUpperCase();
-}
 
 function renderWire(ctx, componentWidth, startPoint, endPoint, value)
 {
@@ -421,63 +403,6 @@ function renderDiode(ctx, componentWidth, startPoint, endPoint, value)
 
 }
 
-function renderOpAmp(ctx, componentWidth, startPoint, endPoint, value)
-{
-
-    const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
-    const length = Math.sqrt( Math.pow(endPoint.x-startPoint.x, 2) + Math.pow(endPoint.y-startPoint.y,2) );
-
-    let rotAngle = angle;                
-     
-    /*
-    if (rotAngle < 0)
-    {
-        rotAngle += Math.PI*2;
-    }
-    if (rotAngle < Math.PI/2 || rotAngle >= 3*Math.PI/2)
-    {
-        rotAngle = angle;
-    } else {
-        rotAngle = angle+Math.PI;
-    }*/
-    
-    
-    ctx.beginPath();
-
-    ctx.textAlign = "center";
-    ctx.save();
-    ctx.translate((startPoint.x+endPoint.x)/2, (startPoint.y+endPoint.y)/2);
-    ctx.rotate(rotAngle);
-
-    const width = componentWidth/3;
-    ctx.moveTo(-length/2, 0);
-    ctx.lineTo(-width, 0); //straight part
-
-
-    ctx.moveTo(-width, componentWidth/2); 
-    ctx.lineTo(-width, -componentWidth/2); //triangle
-    ctx.lineTo(width, 0); 
-    ctx.lineTo(-width, componentWidth/2); 
-
-    ctx.moveTo(width, componentWidth/2); 
-    ctx.lineTo(width, -componentWidth/2); //second side
-
-    ctx.moveTo(width, 0);
-    ctx.lineTo(length/2, 0); //straight part
-
-    ctx.stroke();
-
-    //ctx.fillText(value, 0,-componentWidth*1.1  );
-    ctx.restore();
-
-    let w = componentWidth/4;
-    ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
-    ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
-
-    ctx.closePath();
-
-}
-
 
 //For each save we do: type, sp.x, sp.y, ep.x, ep.y, valueString,
 class UIComponent
@@ -499,8 +424,8 @@ class UIComponent
 
         this.voltageData = []; //used for plotting...
         this.currentData = [];
-        this.voltageMultiplier = 10;
-        this.currentMultiplier = 10;
+        this.voltageMultiplier = 100;
+        this.currentMultiplier = 100;
         this.plotTimeDivisor = 5; //for speeding up...
 
 
@@ -561,7 +486,8 @@ class UIComponent
         const validCharsLookup = [0.000000000001, 0.000000001, 0.000001, 0.001, 1000, 1000000];
         let validCharIndex = null;
         let index = 0;
-        while (index < this.valueString.length)
+        let loop = 0;
+        while (index < this.valueString.length && loop < 100)
         {
             for (let i=0; i<validChars.length; i++)
             {
@@ -573,6 +499,7 @@ class UIComponent
             }
             if (validCharIndex != null) { break; }
             index += 1;
+            loop += 1;
         }
 
         let number = Number(this.valueString.slice(0,index));
@@ -607,12 +534,183 @@ class UIComponent
     }
 }
 
+class UIButton
+{
+    constructor(text="button", startPoint=new Point(), size=new Point(), backgroundColor = "grey", textColor = "black", highlightColor = "lightgrey")
+    {
+        this.text = text;
+        this.startPoint = startPoint;
+        this.size = size;
+        this.backgroundColor = backgroundColor;
+        this.textColor = textColor;
+        this.highlightColor = highlightColor;
+    }
+    setPosition(upperLeftStartPoint = new Point())
+    {
+        this.startPoint = upperLeftStartPoint;
+    }
+    setSize(widthAndHeight = new Point())
+    {
+        this.size = widthAndHeight;
+    }
+    pointIsOverButton(point)
+    {
+        if (point.x >= this.startPoint.x && point.x <= this.startPoint.x + this.size.x &&
+            point.y >= this.startPoint.y && point.y <= this.startPoint.y + this.size.y )
+        {
+            return true;
+        }
+        return false;
+    }
+    render(ctx, highlight = false, highlightColor = null) //highlight can be boolean, a color string, or mousePos val
+    {
+        
+        const tempFillStyle = ctx.fillStyle;
+
+        
+
+        if (highlight instanceof Point)
+        {
+            highlight = this.pointIsOverButton(highlight);
+        }
+
+        if (highlight == true)
+        {
+            if (highlightColor != null)
+            {
+                ctx.fillStyle = highlightColor;
+            } else {
+                ctx.fillStyle = this.highlightColor;
+            }
+        } else {
+            ctx.fillStyle = this.backgroundColor;
+        }
+
+        ctx.fillRect(this.startPoint.x, this.startPoint.y, this.size.x, this.size.y);
+        ctx.fillStyle = this.textColor;
+        ctx.textAlign = "center";
+
+        const textSize = ctx.measureText(this.text);
+        const verticalOffset = (textSize.actualBoundingBoxAscent - textSize.actualBoundingBoxDescent)/2
+        ctx.fillText(this.text, this.startPoint.x + this.size.x/2, this.startPoint.y + this.size.y/2 + verticalOffset);
+        ctx.fillStyle = tempFillStyle;
+    }
+}
+
+class UIPlot extends UIButton
+{
+    constructor(component)
+    {
+        super();
+        this.component = component;
+    }
+    getComponent()
+    {
+        return this.component;
+    }
+    render(ctx, plotWidth, plotHeight, startX, startY, midY)
+    {
+        this.ctx = ctx;
+        this.startPosition = new Point(startX, startY);
+        this.size = new Point(plotWidth, plotHeight);
+        this.startX = startX;
+        this.startY = startY;
+        this.width = plotWidth;
+        this.height = plotHeight;
+
+        const c = this.component;
+
+        //Draw plot background and such
+        this.ctx.beginPath();
+        this.ctx.fillStyle = "black";
+        this.ctx.strokeStyle = "grey";
+        this.ctx.fillRect(startX, startY, plotWidth, plotHeight);
+        this.ctx.moveTo(startX, midY);
+        this.ctx.lineTo(startX + plotWidth, midY);
+        this.ctx.stroke();
+        this.ctx.closePath();
+
+        //Draw  voltage
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = "green";
+        let dataLength = c.voltageData.length;
+        
+        let x = startX;
+        let y = midY;
+        let nextY = y;
+        let maxY = 0;  //maxY & minY are used for finding and adjusting the voltageMultiplier for the next cycle
+        let minY = 10000000000000;
+        this.ctx.textAlign = "left";
+        this.ctx.fillStyle = "#55FF55";
+        this.ctx.fillText(  (plotHeight*0.5/c.voltageMultiplier).toPrecision(5), startX, startY + 12 );
+        this.ctx.fillStyle = "yellow";
+        this.ctx.fillText(  (plotHeight*0.5/c.currentMultiplier).toPrecision(5), startX + 70, startY + 12 );
+        this.ctx.fillStyle = "white";
+        this.ctx.textAlign = "right";
+        this.ctx.fillText(this.component.name, startX + plotWidth, startY + 12);
+        this.ctx.moveTo(x,y);
+
+        if (dataLength < 2) { return; }
+
+        for (let j=Math.max(0, dataLength-plotWidth*c.plotTimeDivisor); j<dataLength; j+=c.plotTimeDivisor)
+        {
+            nextY = c.voltageData[Math.round(j)]*c.voltageMultiplier;
+            if (nextY > maxY) { maxY = nextY; }
+            if (nextY < minY) { minY = nextY; }
+            this.ctx.lineTo(x, midY - nextY);
+            y = nextY;
+            x += 1;
+        }
+        this.ctx.stroke();
+        this.ctx.closePath();
+
+        if ((maxY + 20 > plotHeight/2 || minY - 20< -plotHeight/2) && c.voltageMultiplier > 1) //decrease voltage scale
+        {
+            c.voltageMultiplier *= 0.9;
+        } else if ((maxY < plotHeight/4 && minY > -plotHeight/4) && c.voltageMultiplier < 100000) //increase voltage scale
+        {
+            c.voltageMultiplier *= 1.1;
+        }
+
+        //now, adjust the voltage multiplier if needed
+        //if ()
+
+        //draw current
+        this.ctx.beginPath();
+        this.ctx.strokeStyle = "yellow";
+        dataLength = c.voltageData.length;
+        x = startX;
+        y = midY;
+        maxY=0;
+        minY=0;
+        nextY = y;
+        this.ctx.moveTo(x,y);
+        for (let j=Math.max(0, dataLength-plotWidth*c.plotTimeDivisor); j<dataLength; j+=c.plotTimeDivisor)
+        {
+            nextY = c.currentData[Math.round(j)]*c.currentMultiplier;
+            if (nextY > maxY) { maxY = nextY; }
+            if (nextY < minY) { minY = nextY; }
+            this.ctx.lineTo(x, midY - nextY);
+            y = nextY;
+            x += 1;
+        }
+        this.ctx.stroke();
+        this.ctx.closePath();    
+        if ((maxY + 20 > plotHeight/2 || minY - 20 < -plotHeight/2) && c.currentMultiplier > 1) //decrease voltage scale
+        {
+            c.currentMultiplier *= 0.9;
+        } else if ((maxY < plotHeight/4 && minY > -plotHeight/4) && c.currentMultiplier < 100000) //increase voltage scale
+        {
+            c.currentMultiplier *= 1.1;
+        }     
+    }
+}
+
 
 class CircuitUI
 {
     constructor(htmlCanvasElement)
     {
-
         //Circuit stuff
         this.components = [];//[new UIComponent(), new UIComponent("resistor", new Point(50,200))];
 
@@ -626,14 +724,26 @@ class CircuitUI
         this.defaultStrokeWidth = 2;
         this.defaultFont = '15px sans-serif';
         this.componentWidth = 15;
-        this.plottedComponents = []; //components which are being plotted.
 
+        //Plot variables
+        this.plots = [];
+
+        //buttons
+        this.plotComponentButton = new UIButton( "Plot Component", new Point(330,10), new Point(150,30) );
+        this.toggleSimulationRunButton = new UIButton( "Run Simulation", new Point(170,10), new Point(150,30));
+        this.resetSimulationButton = new UIButton( "Reset Simulation", new Point(10,10), new Point(150,30));
+        this.increasePlotTimeScaleButton = new UIButton( "+Time", new Point(), new Point(50,30) );
+        this.decreasePlotTimeScaleButton = new UIButton( "-Time", new Point(), new Point(50,30) );
+        this.buttons = [this.plotComponentButton, this.toggleSimulationRunButton, this.resetSimulationButton];
+        
+
+        //Circuit related variables
         this.circuit = new Circuit();
-        this.run = true;
+        this.editedCircuit = true;    //so we know when we need to update the circuit
+        this.run = false;
         this.numCalculationsPerRender = 1000;
 
         this.userState = 'idle'; //for determining what user input pattern is currently happening
-
 
         //mouse moving stuff
         this.mousePos = new Point();
@@ -652,6 +762,11 @@ class CircuitUI
 
         if (this.run == true )
         {
+            /*if (this.editedCircuit == true)
+            {
+                this.circuit = new Circuit( this._getCircuitText() );
+                this.editedCircuit = false;
+            }*/
             this.circuit.Calculate(this.numCalculationsPerRender);
         }
 
@@ -662,6 +777,10 @@ class CircuitUI
         ctx.fillStyle = this.backgroundColor;
         ctx.clearRect(0, 0, this.htmlCanvasElement.width, this.htmlCanvasElement.height);
         ctx.fillRect(0, 0, this.htmlCanvasElement.width, this.htmlCanvasElement.height);
+
+        ctx.fillStyle = "black";
+        ctx.textAlign = "left";
+        ctx.fillText("t = " + this.circuit.getCurrentTime().toPrecision(5) + "s", 10, 60);
         
         //Set Default Colors
         ctx.fillStyle = this.defaultStrokeColor;
@@ -673,24 +792,14 @@ class CircuitUI
 
         for (let i=0; i<this.components.length; i++)
         {
-            const c = this.components[i];
-            const data = this.circuit.getComponentData(c.name);
-            let v = 0;
-            if (data != null) {
-                c.voltageData = data.voltageHistory;
-                c.currentData = data.currentHistory;
-                v = c.voltageData[c.voltageData.length-1];
-            }
-
-            ctx.strokeStyle = toRGB(Math.max( 0, -v)*20, Math.max( 0, v)*20, 0 );
+            ctx.strokeStyle = color;
             ctx.fillStyle = color;
-            if (c == this.selectedComponent)
+            if (this.components[i] == this.selectedComponent)
             {
-                ctx.strokeStyle = toRGB(-v*25, v*25, 254 );
-                //ctx.strokeStyle = highlightColor;
+                ctx.strokeStyle = highlightColor;
                 if (this.userState == "editingComponentValue")
                 {
-                    if (c.valueIsValid == true)
+                    if (this.components[i].valueIsValid == true)
                     {
                         ctx.fillStyle = "green";
                     } else {
@@ -698,33 +807,107 @@ class CircuitUI
                     }
                 }
             }
-            c.render(ctx, this.componentWidth);
+            this.components[i].render(ctx, this.componentWidth);
         }
+        this._renderButtons();
         this._renderPlots();
+    }
+    _renderButtons()
+    {
+        const falseColor = "#DD4444";
+        const falseColorHighlight = "#FF4444";
+        const trueColor = "#44DD44";
+        const trueColorHighlight = "#44FF44";
+        const disableColor = "#88888844";
+
+        //Run/Stop button
+        if (this.run == true)
+        {
+            this.toggleSimulationRunButton.backgroundColor = trueColor;
+            this.toggleSimulationRunButton.highlightColor = trueColorHighlight;
+        } else {
+            this.toggleSimulationRunButton.backgroundColor = falseColor;
+            this.toggleSimulationRunButton.highlightColor = falseColorHighlight;
+        }
+        this.toggleSimulationRunButton.render(this.ctx, this.mousePos);
+
+
+        //Reset Simulation Button
+        if (this.editedCircuit == true)
+        {
+            this.resetSimulationButton.backgroundColor = falseColor;
+            this.resetSimulationButton.highlightColor = falseColorHighlight;
+        } else {
+            this.resetSimulationButton.backgroundColor = trueColor;
+            this.resetSimulationButton.highlightColor = trueColorHighlight;
+        }
+        this.resetSimulationButton.render(this.ctx, this.mousePos);
+
+        //Plot component button
+        if (this.selectedComponent != null)
+        {
+            if (this._componentIsPlotted(this.selectedComponent))
+            {
+                this.plotComponentButton.backgroundColor = falseColor;
+                this.plotComponentButton.highlightColor = falseColorHighlight;
+                this.plotComponentButton.text = "Remove Plot";
+            } else {
+                this.plotComponentButton.backgroundColor = trueColor;
+                this.plotComponentButton.highlightColor = trueColorHighlight;
+                this.plotComponentButton.text = "Plot Component";
+            }
+        } else {
+            this.plotComponentButton.text = "";
+            this.plotComponentButton.backgroundColor = disableColor;
+            this.plotComponentButton.highlightColor = disableColor;
+        }
+        this.plotComponentButton.render(this.ctx, this.mousePos);
+
     }
     _renderPlots()
     {
-        if (this.plottedComponents.length < 1) { return; }
+        if (this.plots.length < 1) { return; }
         const paddingX = 20; //horizontal padding between each plot
         const paddingY = 20; //vertical padding from bottom of canvas
-        const plotWidth = (this.htmlCanvasElement.width / this.plottedComponents.length) - paddingX; //width of each plot
+        const plotWidth = (this.htmlCanvasElement.width / this.plots.length) - paddingX; //width of each plot
         const plotHeight = this.htmlCanvasElement.height/4; //height of each plot
         const startY = this.htmlCanvasElement.height*3/4 - 20; //the upper lefthand corner y component of each plot
         let startX = paddingX/2; //the upper lefthand corner x component of each plot (increments by plotWidth+paddingX each time)
         const midY = startY + plotHeight/2; //midY is the middle of the plot, or the 0 line
 
         //for each plotted component
-        for (let i=0; i<this.plottedComponents.length; i++)
+        for (let i=0; i<this.plots.length; i++)
         {
-            const c = this.plottedComponents[i];
-            /*if (this.run == true) //if running the simulation, get
+            const p = this.plots[i];
+            const c = p.getComponent();
+            //console.log(p, c);
+            if (this.run == true) //if running the simulation, get
             {
                 const data = this.circuit.getComponentData(c.name);
-                if (data == null) { continue;}
-                c.voltageData = data.voltageHistory;
+                //console.log(data, c.name);
+                if (data != null) { 
+                    c.voltageData = data.voltageHistory;
                 c.currentData = data.currentHistory;
-            }*/
+                }
+            }
 
+            p.setPosition(new Point(startX, startY));
+            p.setSize(new Point(plotWidth, plotHeight));
+            p.render(this.ctx, plotWidth, plotHeight, startX, startY, midY, paddingX);
+            if (this.selectedComponent == c)
+            {
+                this.ctx.beginPath();
+                this.ctx.fillStyle = "#4444DD";
+                this.ctx.fillRect(startX, startY-4, plotWidth, 4);
+                //this.ctx.moveTo(startX, startY);
+                //this.ctx.lineTo(startX+plotWidth, startY);
+                this.ctx.stroke();
+                this.ctx.closePath();
+            }
+            startX += plotWidth + paddingX;
+            continue;
+
+            
 
             //Draw plot background and such
             this.ctx.beginPath();
@@ -740,6 +923,7 @@ class CircuitUI
             this.ctx.beginPath();
             this.ctx.strokeStyle = "green";
             let dataLength = c.voltageData.length;
+            
             let x = startX;
             let y = midY;
             let nextY = y;
@@ -747,19 +931,30 @@ class CircuitUI
             let minY = 10000000000000;
             this.ctx.textAlign = "left";
             this.ctx.fillStyle = "green";
-            this.ctx.fillText(  (plotHeight*0.5/c.voltageMultiplier).toPrecision(5), startX, startY + 10 );
+            this.ctx.fillText(  (plotHeight*0.5/c.voltageMultiplier).toPrecision(5), startX, startY + 12 );
             this.ctx.moveTo(x,y);
+
+            if (dataLength < 2) { continue; }
+
             for (let j=Math.max(0, dataLength-plotWidth*c.plotTimeDivisor); j<dataLength; j+=c.plotTimeDivisor)
             {
-                nextY = midY - c.voltageData[Math.round(j)]*c.voltageMultiplier;
+                nextY = c.voltageData[Math.round(j)]*c.voltageMultiplier;
                 if (nextY > maxY) { maxY = nextY; }
                 if (nextY < minY) { minY = nextY; }
-                this.ctx.lineTo(x, nextY);
+                this.ctx.lineTo(x, midY - nextY);
                 y = nextY;
                 x += 1;
             }
             this.ctx.stroke();
             this.ctx.closePath();
+
+            if ((maxY > plotHeight/2 || minY < -plotHeight/2) && c.voltageMultiplier > 1)
+            {
+                c.voltageMultiplier *= 0.9;
+            } else if ((maxY < plotHeight/4 && minY > -plotHeight/4) && c.voltageMultiplier < 1000)
+            {
+                c.voltageMultiplier *= 1.1;
+            }
 
             //now, adjust the voltage multiplier if needed
             //if ()
@@ -770,22 +965,32 @@ class CircuitUI
             dataLength = c.voltageData.length;
             x = startX;
             y = midY;
+            maxY=0;
+            minY=0;
             nextY = y;
             this.ctx.moveTo(x,y);
             for (let j=Math.max(0, dataLength-plotWidth*c.plotTimeDivisor); j<dataLength; j+=c.plotTimeDivisor)
             {
-                nextY = midY + c.currentData[Math.round(j)]*c.currentMultiplier;
-                this.ctx.lineTo(x, nextY);
+                nextY = c.currentData[Math.round(j)]*c.currentMultiplier;
+                if (nextY > maxY) { maxY = nextY; }
+                if (nextY < minY) { minY = nextY; }
+                this.ctx.lineTo(x, midY - nextY);
                 y = nextY;
                 x += 1;
             }
             this.ctx.stroke();
-            this.ctx.closePath();            
+            this.ctx.closePath();    
+            if (maxY > plotHeight/2 || minY < -plotHeight/2)
+            {
+                c.currentMultiplier *= 0.9;
+            } else if (maxY < plotHeight/4 && minY > -plotHeight/4)
+            {
+                c.currentMultiplier *= 1.1;
+            }        
 
 
             startX += plotWidth + paddingX;
         }
-
     }
     resize() {
         
@@ -825,7 +1030,8 @@ class CircuitUI
         const dx = p.x - xx;
         const dy = p.y - yy;
         return Math.sqrt(dx * dx + dy * dy);
-      }
+    }
+
     _getComponentAndSegmentClicked()
     {
         let closestComp = null;
@@ -860,7 +1066,7 @@ class CircuitUI
 
         if (closestComp != null)
         {
-            console.log(closestComp.name + " " + segment);
+            //console.log(closestComp.name + " " + segment);
             return {component:closestComp, segment:segment};
         }
         return {
@@ -868,39 +1074,106 @@ class CircuitUI
             segment: null,
         }
     }
+    _getButtonAtPos(pos)
+    {
+        for (let i=0; i<this.buttons.length; i++)
+        {
+            if (this.buttons[i].pointIsOverButton(pos))
+            {
+                return this.buttons[i];
+            }
+        }
+        return null;
+    }
+    _getPlotAtPos(pos)
+    {
+        for (let i=0; i<this.plots.length; i++)
+        {
+            if (this.plots[i].pointIsOverButton(pos))
+            {
+                return this.plots[i];
+            }
+        }
+        return null;
+    }
+
     _addComponent(c)
     {
         this.components.push(c);
     }
-    _deleteComponent()
+    _deleteComponent(component = null)
     {
+        if (component == null)
+        {
+            component = this.selectedComponent;
+        }
         for(let i=0; i<this.components.length; i++)
         {
-            if (this.components[i] == this.selectedComponent)
+            if (this.components[i] == component)
             {
                 this.components.splice(i,1);
                 break;
             }
         }
-        for(let i=0; i<this.plottedComponents.length; i++)
+        this._removePlot(component);
+    }
+
+    _addPlot(component)
+    {
+        if (component == null)
         {
-            if (this.plottedComponents[i] == this.selectedComponent)
+            component = this.selectedComponent;
+        }
+        if (component == null)
+        {
+            return;
+        }
+        //if (component instanceof UIComponent)
+        if (this._removePlot(component) == false)
+        {
+            this.plots.push(new UIPlot(component));
+        }
+    }
+    _removePlot(component)
+    {
+        if (component == null)
+        {
+            component = this.selectedComponent;
+        }
+        for(let i=0; i<this.plots.length; i++)
+        {
+            if (this.plots[i].component == component)
             {
-                this.plottedComponents.splice(i,1);
+                this.plots.splice(i,1);
                 return true;
             }
         }
+        return false;
     }
+    _componentIsPlotted(component)
+    {
+        for (let i=0; i<this.plots.length; i++)
+        {
+            if (this.plots[i].getComponent() == component)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
     _eventListener(event) {
         let keyPressed = null;
         let rawKeyPressed = null;
         let keyReleased = null;
-        let clickedComponent = null;
-        let clickedComponentSegment = null;
         let newMousePos;
         let ret;
         this.mousePosDelta.set(0,0);
         const componentShortcuts = ['w', 'r', 'c', 'i', 'v', 'V', 'g', 'l', 'd'];
+        let componentOver = null;
+        let componentOverSegment = null;
+        let buttonOver = null; //which UIbutton (from this.buttons) was clicked
+        let plotOver = null;
 
         //get data from event
         if (event == null)
@@ -918,20 +1191,26 @@ class CircuitUI
 
                 this.mouseIsDown = true;
                 ret = this._getComponentAndSegmentClicked();
-                clickedComponent = ret.component;
-                clickedComponentSegment = ret.segment;
+                componentOver = ret.component;
+                componentOverSegment = ret.segment;
+                buttonOver = this._getButtonAtPos(this.mousePos);
+                plotOver = this._getPlotAtPos(this.mousePos);
                 break;
             case 'mouseup':
                 newMousePos = new Point(event.offsetX, event.offsetY);
                 this.mousePosDelta = newMousePos.sub(this.mousePos);
                 this.mousePos = newMousePos;
-
                 this.mouseIsDown = false;
                 break;
             case 'mousemove':
                 newMousePos = new Point(event.offsetX, event.offsetY);
                 this.mousePosDelta = newMousePos.sub(this.mousePos);
                 this.mousePos = newMousePos;
+                ret = this._getComponentAndSegmentClicked();
+                componentOver = ret.component;
+                componentOverSegment = ret.segment;
+                buttonOver = this._getButtonAtPos(this.mousePos);
+                plotOver = this._getPlotAtPos(this.mousePos);
                 break;
             case 'mouseout':
                 newMousePos = new Point(event.offsetX, event.offsetY);
@@ -945,8 +1224,10 @@ class CircuitUI
                 this.mousePos = newMousePos;
                 this.mouseIsDown = false;
                 ret = this._getComponentAndSegmentClicked();
-                clickedComponent = ret.component;
-                clickedComponentSegment = ret.segment;
+                componentOver = ret.component;
+                componentOverSegment = ret.segment;
+                buttonOver = this._getButtonAtPos(this.mousePos);
+                plotOver = this._getPlotAtPos(this.mousePos);
                 break;
             case 'keydown':
                 keyPressed = event.key.toLowerCase();
@@ -974,9 +1255,22 @@ class CircuitUI
 
         if (event.type == "keydown" && keyPressed == "enter")
         {
-            this.circuit = new Circuit(this._getCircuitText() );
+            //this.circuit = new Circuit( this._getCircuitText() );
         }
 
+        if (event.type == "mousemove") //handle mouse cursor type (if over button or over component, change cursor style);
+        {
+            if (componentOver != null) { 
+                this.htmlCanvasElement.style.cursor="crosshair";
+            } else if (plotOver != null || buttonOver != null) {
+                this.htmlCanvasElement.style.cursor="pointer";
+            } else {
+                this.htmlCanvasElement.style.cursor="default";
+            }
+        }
+
+        document.getElementById("userStateDiv").innerText = " " + this.userState;
+        document.getElementById("selectedCompDiv").innerText = " " + this.selectedComponent?.name;
 
         if (this.userState == "idle")
         {
@@ -985,19 +1279,41 @@ class CircuitUI
                 this.selectedComponent = null;
                 return;
             }
-            if (event.type == "mousedown" && clickedComponent == null)
+            if ( event.type == "mousedown" && buttonOver != null) // a UIbutton was clicked
+            {
+                switch(buttonOver)           //plotComponentButtonClicked
+                {
+                    case this.plotComponentButton: this._addPlot(this.selectedComponent); break;
+                    case this.toggleSimulationRunButton:
+                        if (this.run == true)
+                        {
+                            this.run = false;
+                            this.toggleSimulationRunButton.text = "Run Simulation";
+                        } else {
+                            this.run = true;
+                            this.toggleSimulationRunButton.text = "Stop Simulation";
+                        }
+                        break;
+                    case this.resetSimulationButton: this._resetSimulation(); break;
+                }
+                return;
+            }
+            if (event.type == "mousedown" && plotOver != null) // a Plot was clicked
+            {
+                this.selectedComponent = plotOver.getComponent();
+                return;
+            }
+            if (event.type == "mousedown" && componentOver == null) //deselection of component
             {
                 this.selectedComponent = null;
                 return;
             }
-
             if (event.type == 'keydown' && (keyPressed == 'delete' || keyPressed == 'backspace') && this.selectedComponent != null) //delete component
             {
                 this._deleteComponent(this.selectedComponent);
                 return;
             }
-
-            if (event.type == 'keydown') {
+            if (event.type == 'keydown') { //potentially making new component (searches through componentShortcuts)
                 
                 for (let i=0; i<componentShortcuts.length; i++)
                 {
@@ -1008,30 +1324,43 @@ class CircuitUI
                     }
                 }
             }
-
-            
-            if (event.type == "mousedown" && clickedComponent != null)
+            if (event.type == "mousedown" && componentOver != null && this.pressedKeys.get("shift") == true) //plot component
             {
-                this.selectedComponent = clickedComponent;
-                this.selectedComponentSegment = clickedComponentSegment;
-                this.userState = "movingComponent";
+                this._addPlot(componentOver);
+                return;
             }
-            if (event.type == "dblclick" && clickedComponent != null)
+            if (event.type == "mousedown" && componentOver != null) //switch to moving component
             {
-                this.selectedComponent = clickedComponent;
-                this.selectedComponentSegment = clickedComponentSegment;
+                this.selectedComponent = componentOver;
+                this.selectedComponentSegment = componentOverSegment;
+                this.userState = "movingComponent";
+                this.movedSelectedComponent = false;
+                return;
+            }
+            if (event.type == "dblclick" && componentOver != null) //dbl click means editingComponentValue
+            {
+                this.selectedComponent = componentOver;
+                this.selectedComponentSegment = componentOverSegment;
                 this.userState = "editingComponentValue";
-                this.plottedComponents.push(this.selectedComponent);
-            }  
-
-            
+            }
         }
 
         if (this.userState == "movingComponent")
         {
-            if (this.mouseIsDown == false ||  keyPressed == "escape")
+            if (this.mouseIsDown == false ||  keyPressed == "escape" || event.type == "mouseup")
             {
+                if (this.movedSelectedComponent)
+                {
+                    this.editedCircuit = true;
+                }
+                this.movedSelectedComponent = false;
                 this.userState = "idle";
+            }
+            
+            //This is used to check if we actually moved the component, or just clicked it. If we just clicked it, then we didn't edit the circuit, thus the circuit was not edited.
+            if (event.type == "mousemove")
+            {
+                this.movedSelectedComponent = true;
             }
             if (this.selectedComponentSegment == "startPoint")
             {
@@ -1047,7 +1376,7 @@ class CircuitUI
 
         if (this.userState == "editingComponentValue")
         {
-            if ( keyPressed == "escape" || event.type == "mousedown")
+            if ( keyPressed == "escape" || event.type == "mousedown" || keyPressed == "enter")
             {
                 this.userState = "finishingEditingComponentValue";
             }
@@ -1077,7 +1406,6 @@ class CircuitUI
             return;
         }
 
-
         if (this.userState == "creatingComponent")
         {
             if (event.type == 'mousedown')
@@ -1090,12 +1418,6 @@ class CircuitUI
                 this.selectedComponentSegment = "endPoint";
             }
         }
-
-        return;
-    }
-    _addPlot(component)
-    {
-        console.error("NOT IMPLEMENTED");
     }
     _setEventListeners(selfObject)
     {
@@ -1121,6 +1443,7 @@ class CircuitUI
             selfObject.resize(e);
         })
     }
+
     loadFromSave(saveText = "")
     {
 
@@ -1150,6 +1473,8 @@ class CircuitUI
                 this._addComponent(c);
             }
         }
+
+        this._resetSimulation();
     }
     getSaveText()
     {
@@ -1255,6 +1580,11 @@ class CircuitUI
         console.log(s);
         return s;
     }
+    _resetSimulation()
+    {
+        this.circuit = new Circuit(this._getCircuitText()); 
+        this.editedCircuit = false;
+    }
 }
 
 
@@ -1268,14 +1598,14 @@ var gridSize = 20;
 const c = new CircuitUI(htmlCanvasElement);
 
 //c.loadFromSave("v,300,280,300,180,10;r,300,180,420,180,1k;r,420,180,420,280,1k;w,420,280,300,280,1;g,300,280,300,320,0;");
-c.loadFromSave("v,300,280,300,180,10;r,300,180,420,180,1k;w,420,280,300,280,1;g,300,280,300,320,0;l,420,180,420,280,1m;r,420,180,500,180,10;c,500,180,500,280,1u;w,500,280,420,280,1;");
+c.loadFromSave("v,300,280,300,180,10;r,300,180,420,180,1k;w,420,280,300,280,1;g,300,280,300,320,0;l,420,180,420,280,1m;r,420,180,500,180,1;c,500,180,500,280,1u;w,500,280,420,280,1;");
 
 
 
 function SimulationSpeedInputChange(e)
 {
     c.numCalculationsPerRender = Math.pow(Number(speedSlider.value),2);
-    console.log("Simulation Calulations per render: " + c.numCalculationsPerRender);
+    //console.log("Simulation Calulations per render: " + c.numCalculationsPerRender);
 }
 
 

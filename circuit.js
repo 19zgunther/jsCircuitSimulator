@@ -182,244 +182,6 @@ class Diode extends Resistor {
 
 
 
-const circ1 = {
-    string: `
-        r, r1, 0, 1, 1000,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 0, 0, 0,
-    `,
-    expectedOutput: [
-        0,
-        -3.333,
-        -6.666,
-        -10
-    ]
-}
-const circ2 = {
-    string: `
-        r, r1, 0, 1, 1000,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 1, 0, 0,
-    `,
-    expectedOutput: [
-        3.333,
-        0,
-        -3.333,
-        -6.666
-    ]
-}
-const circ3 = {
-    string: `
-        r, r1, 0, 1, 1000,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 2, 0, 0,
-    `,
-    expectedOutput: [
-        6.666,
-        3.333,
-        0,
-        -3.333,
-    ]
-}
-const circ4 = {
-    string: `
-        r, r1, 0, 1, 1000,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 3, 0, 0,
-    `,
-    expectedOutput: [
-        10,
-        6.666,
-        3.333,
-        0,
-    ]
-}
-const circ5 = {
-    string: `
-        r, r1, 0, 1, 1000,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 3, 0, 1,
-    `,
-    expectedOutput: [
-        11,
-        7.666,
-        4.333,
-        1,
-    ]
-}
-const circ6 = {
-    string: `
-        r, r1, 0, 1, 1000,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 2, 0, 3,
-    `,
-    expectedOutput: [
-        9.666,
-        6.333,
-        3,
-        -0.333,
-    ]
-}
-const circ7 = {
-    string: `
-        r, r1, 0, 1, 1000,
-        v2n, v2n2, 1, 2, 5,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 0, 0, 0,
-    `,
-    expectedOutput: [
-        0,
-        -7.5,
-        -2.5,
-        -10
-    ]
-}
-const circ8 = {
-    string: `
-        v2n, v2n4, 0, 1, 5,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 0, 0, 0,
-    `,
-    expectedOutput: [
-        0,
-        5,
-        -2.5,
-        -10
-    ]
-}
-const circ9 = {
-    string: `
-        v2n, v2n4, 0, 1, 5,
-        r, r1, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        v2n, v2n1, 3, 0, 10,
-        v1n, v1n1, 2, 0, 0,
-    `,
-    expectedOutput: [
-        2.5,
-        7.5,
-        0,
-        -7.5
-    ]
-}
-const circ10 = {
-    string: `
-        v2n, v2n4, 0, 1, 5,
-        v2n, 1234, 1, 2, 6, 
-        v2n, 142, 0, 3, 10,
-        r, r4, 2, 3, 1000,
-        v1n, v1n1, 2, 0, 0,
-    `,
-    expectedOutput: [
-        -11,
-        -6,
-        0,
-        -1,
-    ]
-}
-const circ11 = {
-    nodes: [
-        new Node(0),
-        new Node(1),
-        new Node(2),
-        new Node(3),
-    ], 
-    components: [
-        new Voltage2n('1', 0,1, 5),
-        new Voltage2n('2', 2,1, 6),
-        new Voltage2n('3', 0,3, 10),
-        new Resistor('4', 2,3),
-        new Voltage1n('5', 2, null, 0),
-    ],
-    string: `
-        v2n, v2n4, 0, 1, 5,
-        v2n, 1234, 2, 1, 6, 
-        v2n, 142, 0, 3, 10,
-        r, r4, 2, 3, 1000,
-        v1n, v1n1, 2, 0, 0,
-    `,
-    expectedOutput: [
-        1,
-        6,
-        0,
-        11,
-    ]
-}
-const circ12 = {
-    //testing loose ends with voltage source
-    string: `
-        v2n, v2n4, 0, 3, 10,
-        r, r1, 1, 2, 1000,
-        r, r2, 2, 3, 1000,
-        v1n, 5, 2, 0, 0,
-    `,
-    expectedOutput: [
-        -10,
-        0,
-        0,
-        0,
-    ]
-}
-const circ13 = {
-    //testing loose ends, just resistors
-    string: `
-        v1n, v0, 0, 0, 0,
-        r, r1, 0, 1, 1000,
-        v1n, v2, 2, 0, 10,
-        r, r2, 2, 3, 1000
-    `,
-    expectedOutput: [
-        0,
-        0,
-        10,
-        10,
-    ]
-}
-
-
-
-{
-    //Testing circuit solver
-    /*
-    const circuits = [circ1, circ2, circ3, circ4, circ5, circ6, circ7, circ8, circ9, circ10, circ11, circ12, circ13, circ14, circ15, circ16, circ17, circ18, circ19, circ20];
-
-    for (let k=0; k<circuits.length; k++)
-    {
-        const circ = circuits[k];
-        let ret = Calculate(circ.nodes, circ.components);
-
-        let passed = true;
-        for (let i=0; i<ret.length; i++) {
-            if (!closeTo(ret[i], circ.expectedOutput[i]))
-            {
-                passed = false;
-            }
-        }
-        if (passed == true)
-        {
-            console.log("Test Passed: " + (k+1));
-        } else {
-            console.error("Test Failed: " + (k+1));
-        }
-    }*/
-}
-
-
 function updateMatrix(matA, matX, matB)
 {
     for (let i=0; i<matX.length; i++)
@@ -534,8 +296,6 @@ type acceptible values: r, resistor,
                         cs, currentSource,
 
 */
-
-
 class Circuit
 {
     constructor(circuitString = "")
@@ -630,7 +390,7 @@ class Circuit
                 default: console.error("UNKNOWN COMP: type:" + type + "  name: " + name); break;
             }
 
-            console.log(comp, value1);
+            //console.log(comp, value1);
 
             if (comp != null) {
                 this.components.push(comp);
@@ -757,7 +517,10 @@ class Circuit
         {
             this.timeSinceStart += this.timeStep;
             this._CalculateNodeVoltages();
-            this._CalculateCurrents();
+            if (this._CalculateCurrents() == false)
+            {
+                break;
+            }
             this._CalculateVoltages();
             this._UpdateDynamicComponents();
             this._SaveHistory();
@@ -994,7 +757,9 @@ class Circuit
 
         if (loopNum == maxNumLoops)
         {
+            console.log(this.nodes);
             console.error("Circuit._CalculateCurrents(): Error - Looping to "+maxNumLoops+"... shouldn't ever loop this much.");
+            return false;
         }
 
 
@@ -1039,16 +804,6 @@ class Circuit
 
             if (c instanceof Diode)
             {
-                /*
-                if (c.current < 0)
-                {
-                    //decrease voltage
-                    c.voltage -= 0.1;
-
-                } else {
-                    c.voltage += 0.1;
-                    c.voltage = Math.min(c.thresholdVoltage, c.voltage);
-                }*/
                 //curve: 
                 const I_0 = 0.0000000000001;
                 const v_t = 0.026;
@@ -1057,17 +812,16 @@ class Circuit
                 //  c.current = c.voltage / c.resistance;
                 //  c.wantedCurrent = c.voltage / c.newResistance;
                 // c.resistance = Math.max(0.01, c.voltage/wantedCurrent);
-                if (c.current > wantedCurrent)
+
+                if (c.current > wantedCurrent && c.resistance < 1000000000)
                 {
                     c.resistance *= 1.01;
-                } else { 
+                } else if (c.resistance > 1) { 
                     c.resistance *= 0.987;
                 }
                 c.avgVoltage = c.avgVoltage * 0.9 + c.voltage*0.1;
                 c.avgCurrent = c.avgCurrent * 0.9 + c.current*0.1;
-            }
-
-            
+            }  
         }
     }
     _SaveHistory() {
@@ -1146,77 +900,11 @@ class Circuit
             }
         }
     }
-}
-
-
-/*
-{
-    //testing circuit obj
-    
-    const circuits = [circ1, circ2, circ3, circ4, circ5, circ6, circ7, circ8, circ9, circ10, circ11, circ12, circ13];
-    
-    for (let k=0; k<circuits.length; k++)
+    getCurrentTime()
     {
-        const circ = circuits[k];
-
-        
-        let string;
-        let expectedOutput;
-        let failedToLoad = false;
-        try {
-            string = circ.string;
-            expectedOutput = circ.expectedOutput;
-        } catch {
-            failedToLoad = true;
-        }
-
-        if (failedToLoad || string == null) { continue; }
-
-
-        const obj = new Circuit(string);
-        let ret = obj.Calculate(true);//Calculate(circ.nodes, circ.components);
-
-        let passed = true;
-        for (let i=0; i<ret.length; i++) {
-            if (!closeTo(ret[i], expectedOutput[i]))
-            {
-                passed = false;
-            }
-        }
-        if (passed == true)
-        {
-            console.log("Test Passed: " + (k+1));
-        } else {
-            console.error("Test Failed: " + (k+1) + "   string: " + string);
-        }
+        return this.timeSinceStart;
     }
-
-    const str = `
-        r, r1, 0, 1, 1000,
-        r, r2, 1, 2, 1000,
-        r, r3, 2, 3, 1000,
-        r, r4, 3, 4, 1000,
-        v2n, v2n1, 4, 0, 1,
-        v2n, v2n2, 3, 2, 3,
-    `;
-
-    const str2 = `
-        r, r1, 0, 1, 1000,
-        r, r2, 1, 2, 500,
-        r, r3, 2, 1, 500,
-        v2n, v2n_, 2, 0, 1000,
-        v1n, gnd, 2, 0, 0,
-    `;
-
-    let c = new Circuit(str2);
-    //c._LoadFromString(str);
-    //c._CreateComponentGroupings();
-    ret = c.Calculate();
 }
-
-
-
-*/
 
 
 //OLD UNUSED FUNCTIONS////////////////////////////////////////////////////////////////////
