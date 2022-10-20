@@ -99,7 +99,11 @@ function renderWire(ctx, componentWidth, startPoint, endPoint, value)
     ctx.beginPath();
     ctx.moveTo(startPoint.x, startPoint.y);
     ctx.lineTo(endPoint.x, endPoint.y);
-    let w = componentWidth/4;
+    const w = componentWidth/4;
+    //const r = Math.max(0,Math.round(-value*25));
+    //const g = Math.max(0,Math.round(value*25));
+    //ctx.fillStyle = 'rgb('+r+","+g+",0)";
+    //console.log(ctx.fillStyle);
     ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
     ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
     ctx.stroke();
@@ -880,14 +884,12 @@ class CircuitUI
         {
             const p = this.plots[i];
             const c = p.getComponent();
-            //console.log(p, c);
-            if (this.run == true) //if running the simulation, get
+            if (this.run == true) //if running the simulation, get component data from this.circuit object
             {
                 const data = this.circuit.getComponentData(c.name);
-                //console.log(data, c.name);
                 if (data != null) { 
                     c.voltageData = data.voltageHistory;
-                c.currentData = data.currentHistory;
+                    c.currentData = data.currentHistory;
                 }
             }
 
@@ -899,96 +901,9 @@ class CircuitUI
                 this.ctx.beginPath();
                 this.ctx.fillStyle = "#4444DD";
                 this.ctx.fillRect(startX, startY-4, plotWidth, 4);
-                //this.ctx.moveTo(startX, startY);
-                //this.ctx.lineTo(startX+plotWidth, startY);
                 this.ctx.stroke();
                 this.ctx.closePath();
             }
-            startX += plotWidth + paddingX;
-            continue;
-
-            
-
-            //Draw plot background and such
-            this.ctx.beginPath();
-            this.ctx.fillStyle = "black";
-            this.ctx.strokeStyle = "grey";
-            this.ctx.fillRect(startX, startY, plotWidth, plotHeight);
-            this.ctx.moveTo(startX, midY);
-            this.ctx.lineTo(startX + plotWidth, midY);
-            this.ctx.stroke();
-            this.ctx.closePath();
-
-            //Draw  voltage
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = "green";
-            let dataLength = c.voltageData.length;
-            
-            let x = startX;
-            let y = midY;
-            let nextY = y;
-            let maxY = 0;  //maxY & minY are used for finding and adjusting the voltageMultiplier for the next cycle
-            let minY = 10000000000000;
-            this.ctx.textAlign = "left";
-            this.ctx.fillStyle = "green";
-            this.ctx.fillText(  (plotHeight*0.5/c.voltageMultiplier).toPrecision(5), startX, startY + 12 );
-            this.ctx.moveTo(x,y);
-
-            if (dataLength < 2) { continue; }
-
-            for (let j=Math.max(0, dataLength-plotWidth*c.plotTimeDivisor); j<dataLength; j+=c.plotTimeDivisor)
-            {
-                nextY = c.voltageData[Math.round(j)]*c.voltageMultiplier;
-                if (nextY > maxY) { maxY = nextY; }
-                if (nextY < minY) { minY = nextY; }
-                this.ctx.lineTo(x, midY - nextY);
-                y = nextY;
-                x += 1;
-            }
-            this.ctx.stroke();
-            this.ctx.closePath();
-
-            if ((maxY > plotHeight/2 || minY < -plotHeight/2) && c.voltageMultiplier > 1)
-            {
-                c.voltageMultiplier *= 0.9;
-            } else if ((maxY < plotHeight/4 && minY > -plotHeight/4) && c.voltageMultiplier < 1000)
-            {
-                c.voltageMultiplier *= 1.1;
-            }
-
-            //now, adjust the voltage multiplier if needed
-            //if ()
-
-            //draw current
-            this.ctx.beginPath();
-            this.ctx.strokeStyle = "yellow";
-            dataLength = c.voltageData.length;
-            x = startX;
-            y = midY;
-            maxY=0;
-            minY=0;
-            nextY = y;
-            this.ctx.moveTo(x,y);
-            for (let j=Math.max(0, dataLength-plotWidth*c.plotTimeDivisor); j<dataLength; j+=c.plotTimeDivisor)
-            {
-                nextY = c.currentData[Math.round(j)]*c.currentMultiplier;
-                if (nextY > maxY) { maxY = nextY; }
-                if (nextY < minY) { minY = nextY; }
-                this.ctx.lineTo(x, midY - nextY);
-                y = nextY;
-                x += 1;
-            }
-            this.ctx.stroke();
-            this.ctx.closePath();    
-            if (maxY > plotHeight/2 || minY < -plotHeight/2)
-            {
-                c.currentMultiplier *= 0.9;
-            } else if (maxY < plotHeight/4 && minY > -plotHeight/4)
-            {
-                c.currentMultiplier *= 1.1;
-            }        
-
-
             startX += plotWidth + paddingX;
         }
     }
@@ -1609,7 +1524,7 @@ function SimulationSpeedInputChange(e)
 }
 
 
-let interval = setInterval(update, 50);
+let interval = setInterval(update, 100);
 
 function update()
 {
