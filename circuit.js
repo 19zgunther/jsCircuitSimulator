@@ -181,7 +181,6 @@ class Diode extends Resistor {
 }
 
 
-
 function updateMatrix(matA, matX, matB)
 {
     for (let i=0; i<matX.length; i++)
@@ -298,14 +297,14 @@ type acceptible values: r, resistor,
 */
 class Circuit
 {
-    constructor(circuitString = "")
+    constructor(circuitString = "", timeStep = 0.000000001)
     {
         this.nodes;         //array of node objects
-        this.nodeMap;       //Map to get node by Node Name  (note: not Number)
+        this.nodeMap;       //Map to get node by Node Name  (note: not Number)   //key = nodeName  value = nodeObject
         this.components;    // = components;//circ1.components;
-        this.componentMap;  
+        this.componentMap;   //Map key=comp name, value= component object
 
-        this.timeStep = 0.000000001; // 1ns simulation time step
+        this.timeStep = timeStep; // 1ns simulation time step
         this.timeSinceStart = 0; //in seconds
 
         // following are set in this._CreateComponentGroupings
@@ -324,6 +323,7 @@ class Circuit
         this.nodes = [];
         this.components = [];
         this.nodeMap = new Map();          //nodeMap allows for us to quickly search for nodes by name;
+            //maps string name to node object
         this.componentMap = new Map();
 
         //Remove all spaces, returns, etc from string, and convert to a list
@@ -525,8 +525,6 @@ class Circuit
             this._UpdateDynamicComponents();
             this._SaveHistory();
         }
-
-        
     }
     _CalculateNodeVoltages() 
     {
@@ -848,6 +846,10 @@ class Circuit
             return comp.getVoltage();
         }
     }
+    getNodeVoltage(nodeName)
+    {
+        return this.nodeMap.get(nodeName)?.voltage
+    }
     getComponentCurrent(componentName)
     {
         const comp = this.componentMap.get(componentName);
@@ -877,11 +879,23 @@ class Circuit
         const comp = this.componentMap.get(componentName);
         if (comp == null)
         {
-            return;
+            return {
+                voltage: 0, 
+                current: 0,
+                startNodeVoltage: 0,
+                endNodeVoltage: 0,
+                voltageHistory: [],
+                currentHistory: [],
+                resistance: 1,
+                inductance: 1, 
+                capacitance: 1,
+            };
         }
         return {
             voltage: comp.getVoltage(), 
             current: comp.getCurrent(),
+            startNodeVoltage: comp.startNode.voltage,
+            endNodeVoltage: comp.endNode.voltage,
             voltageHistory: comp.voltageHistory,
             currentHistory: comp.currentHistory,
             resistance: comp.resistance,
@@ -903,6 +917,16 @@ class Circuit
     getCurrentTime()
     {
         return this.timeSinceStart;
+    }
+    getVoltageData()
+    {
+        console.error("Circuit.getVoltageData() not implemented.")
+        this.nodeMap;        //key = nodeName  value = nodeObject
+           
+        this.componentMap;  //Map key=comp.name, value= component object
+        this.componentMap.set(comp.name, comp);
+
+        //what we want is to return a map that maps key=node or component name to value=node or component voltage
     }
 }
 

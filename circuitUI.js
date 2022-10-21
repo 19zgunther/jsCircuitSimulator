@@ -63,6 +63,12 @@ class Point {
     {
         return this.x*1000000 + this.y;
     }
+    fromHashCode(hash, roundTo=1)
+    {
+        this.x = Math.round((hash/1000000)/roundTo)*roundTo;
+        this.y = Math.round((hash - this.x*1000000)/roundTo)*roundTo;
+        return this;
+    }
 
     copy()
     {
@@ -92,10 +98,19 @@ class Point {
 }
 
 
-
-function renderWire(ctx, componentWidth, startPoint, endPoint, value)
+function styleFromVoltage(voltage, multiplier=25)
 {
-    
+    voltage = Number(voltage);
+    if (isNaN(voltage))
+    {
+        return "rgb(0,0,0)";
+    }
+    return "rgb("+Math.round(Math.min(Math.max(0,-multiplier*voltage), 150))+","+Math.round(Math.min(Math.max(0,multiplier*voltage), 150))+",0)";
+}
+
+function renderWire(ctx, componentWidth, startPoint, endPoint, value,)
+{
+    //ctx.strokeStyle = styleFromVoltage(voltageN1);
     ctx.beginPath();
     ctx.moveTo(startPoint.x, startPoint.y);
     ctx.lineTo(endPoint.x, endPoint.y);
@@ -104,19 +119,16 @@ function renderWire(ctx, componentWidth, startPoint, endPoint, value)
     //const g = Math.max(0,Math.round(value*25));
     //ctx.fillStyle = 'rgb('+r+","+g+",0)";
     //console.log(ctx.fillStyle);
-    ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
-    ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
+    //ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
+    //ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
     ctx.stroke();
     ctx.closePath();
 }
 
-function renderResistor(ctx, componentWidth, startPoint, endPoint, value)
+function renderResistor(ctx, componentWidth, startPoint, endPoint, value, compSimulationData)
 {
-
     const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
     const length = Math.sqrt( Math.pow(endPoint.x-startPoint.x, 2) + Math.pow(endPoint.y-startPoint.y,2) );
-    
-
     let rotAngle = angle;                
                 
     if (rotAngle < 0)
@@ -129,27 +141,37 @@ function renderResistor(ctx, componentWidth, startPoint, endPoint, value)
     } else {
         rotAngle = angle+Math.PI;
     }
-    
-    
-    ctx.beginPath();
-
 
     //ctx.fillStyle = 'rgb(0,0,0)';
     ctx.textAlign = "center";
     ctx.save();
     ctx.translate((startPoint.x+endPoint.x)/2, (startPoint.y+endPoint.y)/2);
     ctx.rotate(rotAngle);
+    const sVoltage = compSimulationData.startNodeVoltage;
+    const eVoltage = compSimulationData.endNodeVoltage;
+    const avgVoltage = (sVoltage + eVoltage)/2;
+    //console.log(sVoltage, eVoltage, avgVoltage, styleFromVoltage(sVoltage), styleFromVoltage(eVoltage));
 
+    ctx.beginPath();
+    ctx.strokeStyle = styleFromVoltage(sVoltage);
     ctx.moveTo(-length/2, 0);
     ctx.lineTo(-componentWidth, 0); //straight part
-    
+    ctx.stroke();
+
     const height = componentWidth*0.5;
-    //now squiggles
+    ctx.beginPath();
+    ctx.strokeStyle = styleFromVoltage(avgVoltage);
+    ctx.moveTo( -componentWidth, 0);//now squiggles
     ctx.lineTo( -componentWidth*0.75,  height);
     ctx.lineTo( -componentWidth*0.25, -height);
     ctx.lineTo(  componentWidth*0.25,  height);
     ctx.lineTo(  componentWidth*0.75, -height);
     ctx.lineTo(       componentWidth,       0);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.strokeStyle = styleFromVoltage(eVoltage);
+    ctx.moveTo(       componentWidth,       0);
     ctx.lineTo(length/2, 0); //other straight part
     ctx.stroke();
 
@@ -159,14 +181,10 @@ function renderResistor(ctx, componentWidth, startPoint, endPoint, value)
     let w = componentWidth/4;
     ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
     ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
-
-    ctx.closePath();
-
 }
 
-function renderCapacitor(ctx, componentWidth, startPoint, endPoint, value)
+function renderCapacitor(ctx, componentWidth, startPoint, endPoint, value, compSimulationData)
 {
-
     const angle = Math.atan2(endPoint.y - startPoint.y, endPoint.x - startPoint.x);
     const length = Math.sqrt( Math.pow(endPoint.x-startPoint.x, 2) + Math.pow(endPoint.y-startPoint.y,2) );
 
@@ -183,36 +201,39 @@ function renderCapacitor(ctx, componentWidth, startPoint, endPoint, value)
         rotAngle = angle+Math.PI;
     }
     
-    
-    ctx.beginPath();
-
+    const eVoltage = compSimulationData.startNodeVoltage;
+    const sVoltage = compSimulationData.endNodeVoltage;
+    const width = componentWidth/3;
 
     ctx.textAlign = "center";
     ctx.save();
     ctx.translate((startPoint.x+endPoint.x)/2, (startPoint.y+endPoint.y)/2);
     ctx.rotate(rotAngle);
 
-    const width = componentWidth/3;
+    ctx.beginPath();
+    ctx.strokeStyle = styleFromVoltage(sVoltage);
+    ctx.fillStyle = ctx.strokeStyle;
+    //ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
     ctx.moveTo(-length/2, 0);
     ctx.lineTo(-width, 0); //straight part
     ctx.moveTo(-width, componentWidth); 
     ctx.lineTo(-width, -componentWidth); //first side
-
-    ctx.moveTo(width, componentWidth); 
-    ctx.lineTo(width, -componentWidth); //second side
-
-    ctx.moveTo(width, 0);
-    ctx.lineTo(length/2, 0); //straight part
-
     ctx.stroke();
 
+    ctx.beginPath();
+    ctx.strokeStyle = styleFromVoltage(eVoltage);
+    ctx.moveTo(width, componentWidth); 
+    ctx.lineTo(width, -componentWidth); //second side
+    ctx.moveTo(width, 0);
+    ctx.lineTo(length/2, 0); //straight part
+    ctx.stroke();
+    
     ctx.fillText(value, 0,-componentWidth*1.1  );
     ctx.restore();
 
     let w = componentWidth/4;
-    ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
-    ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
-
+    //ctx.fillRect(startPoint.x-w, startPoint.y-w, 2*w,2*w)
+    //ctx.fillRect(endPoint.x-w, endPoint.y-w, 2*w,2*w)
     ctx.closePath();
 
 }
@@ -527,9 +548,9 @@ class UIComponent
         return this.value;
         //console.log("New value: " + this.value + "  index: " + validCharIndex);
     }
-    render(ctx, componentWidth)
+    render(ctx, componentWidth, compSimulationData)
     {
-        this.renderFunction(ctx, componentWidth, this.startPoint.roundTo(gridSize), this.endPoint.roundTo(gridSize), this.valueString);
+        this.renderFunction(ctx, componentWidth, this.startPoint.roundTo(gridSize), this.endPoint.roundTo(gridSize), this.valueString, compSimulationData);
     }
     toString()
     {
@@ -710,7 +731,6 @@ class UIPlot extends UIButton
     }
 }
 
-
 class CircuitUI
 {
     constructor(htmlCanvasElement)
@@ -728,6 +748,7 @@ class CircuitUI
         this.defaultStrokeWidth = 2;
         this.defaultFont = '15px sans-serif';
         this.componentWidth = 15;
+        this.showNodeVoltages = false;
 
         //Plot variables
         this.plots = [];
@@ -740,9 +761,9 @@ class CircuitUI
         this.decreasePlotTimeScaleButton = new UIButton( "-Time", new Point(), new Point(50,30) );
         this.buttons = [this.plotComponentButton, this.toggleSimulationRunButton, this.resetSimulationButton];
         
-
         //Circuit related variables
         this.circuit = new Circuit();
+        this.nodeMap = new Map();
         this.editedCircuit = true;    //so we know when we need to update the circuit
         this.run = false;
         this.numCalculationsPerRender = 1000;
@@ -774,7 +795,6 @@ class CircuitUI
             this.circuit.Calculate(this.numCalculationsPerRender);
         }
 
-
         const ctx = this.ctx; //this.htmlCanvasElement.getContext('2d');
 
         //Clear Screen
@@ -798,6 +818,9 @@ class CircuitUI
         {
             ctx.strokeStyle = color;
             ctx.fillStyle = color;
+
+            const compSimulationData = this.circuit.getComponentData(this.components[i].name);
+
             if (this.components[i] == this.selectedComponent)
             {
                 ctx.strokeStyle = highlightColor;
@@ -811,8 +834,27 @@ class CircuitUI
                     }
                 }
             }
-            this.components[i].render(ctx, this.componentWidth);
+            this.components[i].render(ctx, this.componentWidth, compSimulationData);
         }
+
+        /*if (this.showNodeVoltages)
+        {
+            const keysArray = Array.from( this.nodeMap.keys() );
+            for (let i=0; i<keysArray.length; i++)
+            {
+                const key = keysArray[i];
+                const name = this.nodeMap.get(key);
+                const point = new Point().fromHashCode(key);
+                const voltage = this.circuit.getNodeVoltage(String(name));
+                //console.log(10*voltage);
+                ctx.fillStyle=styleFromVoltage(voltage);
+                //console.log(ctx.fillStyle);
+                ctx.beginPath();
+                ctx.fillText(voltage.toPrecision(3), point.x+5, point.y-5,);
+                ctx.closePath();
+            }
+        }*/
+
         this._renderButtons();
         this._renderPlots();
     }
@@ -1403,7 +1445,9 @@ class CircuitUI
     _getCircuitText()
     {
         //this function is used to convert the UI circuit into a text string the Circuit() class can understand and simulate.
-        let nodeMap = new Map();
+        this.nodeMap = new Map(); //maps position on screen (point.getHashCode()) to node name
+        this.nodes = [];
+        const nodeMap = this.nodeMap;
         let nodeOn = 0;
 
         //first, map all of the wire points to nodes.
@@ -1505,8 +1549,6 @@ class CircuitUI
 
 
 
-
-
 const htmlCanvasElement = document.getElementById("circuitCanvas");
 const speedSlider = document.getElementById("simulationSpeedInput");
 var gridSize = 20;
@@ -1516,13 +1558,11 @@ const c = new CircuitUI(htmlCanvasElement);
 c.loadFromSave("v,300,280,300,180,10;r,300,180,420,180,1k;w,420,280,300,280,1;g,300,280,300,320,0;l,420,180,420,280,1m;r,420,180,500,180,1;c,500,180,500,280,1u;w,500,280,420,280,1;");
 
 
-
 function SimulationSpeedInputChange(e)
 {
     c.numCalculationsPerRender = Math.pow(Number(speedSlider.value),2);
     //console.log("Simulation Calulations per render: " + c.numCalculationsPerRender);
 }
-
 
 let interval = setInterval(update, 100);
 
